@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  # MongoDB Service for Catalog
+  catalogDB:
+    image: mongo
+    container_name: catalogDB
+    restart: always
+    ports:
+      - "8000:27017"  # Exposing MongoDB on host port 8000
+    networks:
+      - app-network
+    volumes:
+      - mongo-data:/data/db  # Persistent volume for MongoDB data
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: dilip123456
+
+  # Redis Service for Basket
+  basketDB:
+    image: redis
+    container_name: basketDB
+    restart: always
+    ports:
+      - "6379:6379"  # Default Redis port
+    networks:
+      - app-network
+
+  # Catalog API Service
+  catalog.api:
+    image: ${DOCKER_REGISTRY-}catalogapi
+    build:
+      context: .
+      dockerfile: Service/Catalog/Catalog.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8080
+      - ASPNETCORE_HTTPS_PORTS=8081
+      - mongoConnection=mongodb://root:dilip123456@catalogDB:27017/?authSource=admin  # MongoDB connection string
+    ports:
+      - "3000:8080"  # HTTP port
+      - "8081:8081"  # HTTPS port
+    networks:
+      - app-network
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/home/app/.microsoft/usersecrets:ro
+      - ${APPDATA}/ASP.NET/Https:/home/app/.aspnet/https:ro
+    depends_on:
+      - catalogDB  # Ensuring MongoDB starts before catalog.api
+
+  # Basket API Service
+  basket.api:
+    image: ${DOCKER_REGISTRY-}basketapi
+    build:
+      context: .
+      dockerfile: Service/Basket/Basket.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8080
+      - ASPNETCORE_HTTPS_PORTS=8081
+      - redisConnection=basketDB:6379  # Redis connection string
+    ports:
+      - "3001:8080"  # Exposing basket API on different port
+      - "8083:8081"
+    networks:
+      - app-network
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/home/app/.microsoft/usersecrets:ro
+      - ${APPDATA}/ASP.NET/Https:/home/app/.aspnet/https:ro
+    depends_on:
+      - basketDB  # Ensuring Redis starts before basket.api
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mongo-data:
