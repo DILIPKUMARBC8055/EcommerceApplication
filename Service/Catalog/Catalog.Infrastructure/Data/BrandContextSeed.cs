@@ -10,8 +10,9 @@ namespace Catalog.Infrastructure.Data
         public static void SeedData(IMongoCollection<ProductBrand> brandCollection)
         {
             bool checkBrands = brandCollection.Find(b => true).Any();
-            string path = Path.Combine("Data", "SeedData", "brands.json");
-            Console.WriteLine(path);
+            string basePath = Path.Combine("..", "src", "Service", "Catalog", "Catalog.Infrastructure");
+            string path = Path.Combine(basePath,"Data", "SeedData", "brands.json");
+           // Console.WriteLine(path);
             if (!checkBrands)
             {
                 var brandsData = File.ReadAllText(path);

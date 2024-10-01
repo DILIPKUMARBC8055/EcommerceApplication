@@ -1,25 +1,53 @@
+using Discount.API.Services;
+using Discount.Application.Handlers;
+using Discount.Core.Repositary;
+using Discount.Infrastructure.Extensions;
+using Discount.Infrastructure.Repositary;
+using System.Reflection;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+//mediatR at assembly
+var assembly = new Assembly[]
+{
+    Assembly.GetExecutingAssembly(),
+    typeof(GetDiscountQueryHandler).Assembly
+};
+
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(assembly));
+
+//Mapper
+builder.Services.AddAutoMapper(typeof(Program).Assembly);
+
+builder.Services.AddScoped<ICouponRepositary, CouponRepositary>();
+
+builder.Services.AddGrpc();
+
+
 
 var app = builder.Build();
 
+app.MigrationDatabase<Program>();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseDeveloperExceptionPage();
 }
+app.UseRouting();
 
-app.UseHttpsRedirection();
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapGrpcService<DiscountService>();
+    endpoints.MapGet("/", async context =>
+    {
+        await context.Response.WriteAsync("Communication with grpc endpoints must be made through a grpc client");
+    });
+});
 
-app.UseAuthorization();
 
-app.MapControllers();
+
 
 app.Run();
