@@ -10,7 +10,13 @@ services:
   discountdb:
     image: postgres:16.0
     container_name: discountdb
-  
+   
+  orderdb:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+ 
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+
   pgadmin:
     image: dpage/pgadmin4
 
@@ -19,22 +25,8 @@ services:
     build:
       context: .
       dockerfile: Service/Catalog/Catalog.API/Dockerfile
-    ports:
-    - "8080:8080"
-    - "8081:8081"
     
-    environment:
-    - ASPNETCORE_ENVIRONMENT=Developement
-    - ASPNETCORE_HTTP_PORTS=8080
-    - ASPNETCORE_HTTPS_PORTS=8081
-    volumes:
-      - ${APPDATA}/Microsoft/UserSecrets:/home/app/.microsoft/usersecrets:ro
-      - ${APPDATA}/ASP.NET/Https:/home/app/.aspnet/https:ro
  
-
-
-   
-  
 
   basket.api:
     image: ${DOCKER_REGISTRY-}basketapi
@@ -48,4 +40,24 @@ services:
     build:
       context: .
       dockerfile: Service/Discount/Discount.API/Dockerfile
+
+
+  ordering.api:
+    image: ${DOCKER_REGISTRY-}orderingapi
+    build:
+      context: .
+      dockerfile: Service/Ordering/Ordering.api/Dockerfile
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.14.3
+
+
+  ocelot.apigateway:
+    image: ${DOCKER_REGISTRY-}ocelotapigateway
+    build:
+      context: .
+      dockerfile: ApiGateway/Ocelot.ApiGateway/Dockerfile
 

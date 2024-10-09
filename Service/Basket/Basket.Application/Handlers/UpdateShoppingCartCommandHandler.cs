@@ -17,7 +17,7 @@ namespace Basket.Application.Handlers
         }
         public async Task<ShoppingCartResponse> Handle(UpdateShoppingCartCommand request, CancellationToken cancellationToken)
         {
-            var cart = await _basketRepositary.UpdateShoppingCartAsyn(new ShoppingCart(request.UserName, request.Items));
+            var cart = await _basketRepositary.UpdateShoppingCartAsyn(new ShoppingCart { UserName = request.UserName, Items = request.Items });
             if (cart == null)
             {
                 return null;

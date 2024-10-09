@@ -16,7 +16,7 @@ namespace Basket.Infrastructure.Repositary
         }
         public async Task<ShoppingCart> CreateShoppingCartAsyn(ShoppingCart shoppingCart)
         {
-            await _redis.SetStringAsync(shoppingCart.UserName, JsonConvert.SerializeObject(shoppingCart.Items));
+            await _redis.SetStringAsync(shoppingCart.UserName, JsonConvert.SerializeObject(shoppingCart));
             return shoppingCart;
         }
 
@@ -34,7 +34,7 @@ namespace Basket.Infrastructure.Repositary
 
         public async Task<ShoppingCart> UpdateShoppingCartAsyn(ShoppingCart shoppingCart)
         {
-            await _redis.SetStringAsync(shoppingCart.UserName, JsonConvert.SerializeObject(shoppingCart.Items));
+            await _redis.SetStringAsync(shoppingCart.UserName, JsonConvert.SerializeObject(shoppingCart));
             return await GetShoppingCartAsync(shoppingCart.UserName);
 
         }

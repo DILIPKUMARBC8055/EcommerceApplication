@@ -1,0 +1,244 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-secrets
+type: Opaque
+data:
+  mongo-root-username: cm9vdA==    # Base64 encoded 'root'
+  mongo-root-password: ZGlsaXAxMjM0NTY=  # Base64 encoded 'dilip123456'
+  postgres-user: YWRtaW4=    # Base64 encoded 'admin'
+  postgres-password: ZGlsaXAxMjM0    # Base64 encoded 'dilip1234'
+  sa-password: ZGlsaXAxMjM0KkQ4MDU1   # Base64 encoded 'dilip1234*D8055'
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  redis-host: "basketDB:6379"
+  rabbitmq-url: "amqp://guest:guest@rabbitmq:5672"
+  elasticsearch-url: "http://elasticsearch:9200"
+  pgadmin-email: "admin@eCommerce.net"
+  pgadmin-password: "dilip1234"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalogdb
+spec:
+  selector:
+    app: catalogdb
+  ports:
+    - protocol: TCP
+      port: 27017
+      targetPort: 27017
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: basketdb
+spec:
+  selector:
+    app: basketdb
+  ports:
+    - protocol: TCP
+      port: 6379
+      targetPort: 6379
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: discountdb
+spec:
+  selector:
+    app: discountdb
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orderdb
+spec:
+  selector:
+    app: orderdb
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+spec:
+  selector:
+    app: rabbitmq
+  ports:
+    - protocol: TCP
+      port: 5672
+      targetPort: 5672
+    - protocol: TCP
+      port: 15672
+      targetPort: 15672
+
+---
+apiVersion: v1
+kind: Deployment
+metadata:
+  name: catalogapi-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: catalogapi
+  template:
+    metadata:
+      labels:
+        app: catalogapi
+    spec:
+      containers:
+      - name: catalogapi
+        image: catalogapi
+        ports:
+        - containerPort: 8080
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Development"
+        - name: ASPNETCORE_HTTP_PORTS
+          value: "8080"
+        - name: ElasticConfiguration__Uri
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: elasticsearch-url
+        - name: mongoConnection
+          value: "mongodb://$(MONGO_INITDB_ROOT_USERNAME):$(MONGO_INITDB_ROOT_PASSWORD)@catalogdb:27017/?authSource=admin"
+        envFrom:
+        - secretRef:
+            name: db-secrets
+
+---
+apiVersion: v1
+kind: Deployment
+metadata:
+  name: basketapi-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: basketapi
+  template:
+    metadata:
+      labels:
+        app: basketapi
+    spec:
+      containers:
+      - name: basketapi
+        image: basketapi
+        ports:
+        - containerPort: 8080
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Development"
+        - name: ASPNETCORE_HTTP_PORTS
+          value: "8080"
+        - name: redisConnection
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: redis-host
+        - name: GrpcSettings__DiscountUrl
+          value: "http://discount.api:8080"
+        - name: EventBusSettings__HostAddress
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: rabbitmq-url
+        - name: ElasticConfiguration__Uri
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: elasticsearch-url
+
+---
+apiVersion: v1
+kind: Deployment
+metadata:
+  name: discountapi-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: discountapi
+  template:
+    metadata:
+      labels:
+        app: discountapi
+    spec:
+      containers:
+      - name: discountapi
+        image: discountapi
+        ports:
+        - containerPort: 8080
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Development"
+        - name: DatabaseSettings__ConnectionString
+          value: "Server=discountdb;Port=5432;Database=DiscountDb;User Id=$(POSTGRES_USER);Password=$(POSTGRES_PASSWORD);"
+        - name: ElasticConfiguration__Uri
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: elasticsearch-url
+        envFrom:
+        - secretRef:
+            name: db-secrets
+
+---
+apiVersion: v1
+kind: Deployment
+metadata:
+  name: orderingapi-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orderingapi
+  template:
+    metadata:
+      labels:
+        app: orderingapi
+    spec:
+      containers:
+      - name: orderingapi
+        image: orderingapi
+        ports:
+        - containerPort: 8080
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Development"
+        - name: ConnectionStrings__OrderingConnectionString
+          value: "Server=orderdb;Database=OrderDb;User Id=sa;Password=$(SA_PASSWORD);TrustServerCertificate=True"
+        - name: EventBusSettings__HostAddress
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: rabbitmq-url
+        - name: ElasticConfiguration__Uri
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: elasticsearch-url
+        envFrom:
+        - secretRef:
+            name: db-secrets

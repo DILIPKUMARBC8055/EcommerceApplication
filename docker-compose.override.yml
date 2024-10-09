@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
   # MongoDB Service for Catalog
@@ -7,7 +6,7 @@ services:
     container_name: catalogDB
     restart: always
     ports:
-      - "8000:27017"  # Exposing MongoDB on host port 8000
+      - "3000:27017"  # Exposing MongoDB on host port 8000
     networks:
       - app-network
     volumes:
@@ -46,6 +45,35 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  
+  #MySql db for Ordering 
+  orderdb:
+    container_name: orderdb
+    environment:
+      SA_PASSWORD: "dilip1234*D8055"
+      ACCEPT_EULA: "Y"
+    restart: always
+    networks:
+      - app-network
+    ports:
+      - "8010:3306"
+    volumes:
+      - orderdb-dat:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'dilip1234*D8055' -Q 'select 1'"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+
+  #Rabbit mq message broker
+  rabbitmq:
+    container_name: rabbitmq
+    restart: always
+    networks:
+      - app-network
+    ports:
+      - "5672:5672"
+      - "15672:15672"
 
   # PostgreSQL Admin UI (pgAdmin)
   pgadmin:
@@ -71,16 +99,15 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_HTTP_PORTS=8080
-      - ASPNETCORE_HTTPS_PORTS=8081
+      - "ElasticConfiguration__Uri=http://elasticsearch:9200"
       - mongoConnection=mongodb://root:dilip123456@catalogDB:27017/?authSource=admin  # MongoDB connection string
     ports:
-      - "3000:8080"  # HTTP port
-      - "8081:8081"  # HTTPS port
+      - "8000:8080"  # HTTP port
     networks:
       - app-network
     volumes:
       - ${APPDATA}/Microsoft/UserSecrets:/home/app/.microsoft/usersecrets:ro
-      - ${APPDATA}/ASP.NET/Https:/home/app/.aspnet/https:ro
+      #- ${APPDATA}/ASP.NET/Https:/home/app/.aspnet/https:ro
     depends_on:
       - catalogDB  # Ensuring MongoDB starts before catalog.api
 
@@ -93,19 +120,20 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_HTTP_PORTS=8080
-      - ASPNETCORE_HTTPS_PORTS=8081
       - redisConnection=basketDB:6379  # Redis connection string
+      - GrpcSettings__DiscountUrl=http://discount.api:8080
+      - EventBusSettings__HostAddress=amqp://guest:guest@rabbitmq:5672
+      - "ElasticConfiguration__Uri=http://elasticsearch:9200"
     ports:
-      - "3001:8080"  # Exposing Basket API on a different port
-      - "8083:8081"
+      - "8001:8080"  # Exposing Basket API on a different port    
     networks:
       - app-network
     volumes:
       - ${APPDATA}/Microsoft/UserSecrets:/home/app/.microsoft/usersecrets:ro
-      - ${APPDATA}/ASP.NET/Https:/home/app/.aspnet/https:ro
+      #- ${APPDATA}/ASP.NET/Https:/home/app/.aspnet/https:ro
     depends_on:
       - basketDB  # Ensuring Redis starts before basket.api
-
+      - rabbitmq
   # Discount API Service
   discount.api:
     image: ${DOCKER_REGISTRY-}discountapi
@@ -114,18 +142,80 @@ services:
       dockerfile: Service/Discount/Discount.API/Dockerfile
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - "DatabaseSettings__ConnectionString=Server=discountdb;Port=5432;Database=DiscountDb;User Id=admin;Password=dilip1234;"
+      - DatabaseSettings__ConnectionString=Server=discountdb;Port=5432;Database=DiscountDb;User Id=admin;Password=dilip1234;
+      - "ElasticConfiguration__Uri=http://elasticsearch:9200"
     ports:
-      - "3002:8080"  # Exposing Discount API
-      - "8085:8081"
+      - "8002:8080"  # Exposing Discount API
+      
     networks:
       - app-network
     volumes:
       - ${APPDATA}/Microsoft/UserSecrets:/home/app/.microsoft/usersecrets:ro
-      - ${APPDATA}/ASP.NET/Https:/home/app/.aspnet/https:ro
+      #- ${APPDATA}/ASP.NET/Https:/home/app/.aspnet/https:ro
     depends_on:
       discountdb:
         condition: service_healthy  # Ensure DiscountDB is healthy before starting the Discount API
+
+  ordering.api:
+    image: ${DOCKER_REGISTRY-}orderingapi
+    build:
+      context: .
+      dockerfile: Service/Ordering/Ordering.api/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__OrderingConnectionString=Server=orderdb;Database=OrderDb;User Id=sa;Password=dilip1234*D8055;TrustServerCertificate=True
+      - EventBusSettings__HostAddress=amqp://guest:guest@rabbitmq:5672
+      - "ElasticConfiguration__Uri=http://elasticsearch:9200"
+    depends_on:
+      - orderdb 
+      - rabbitmq
+    ports:
+      - "8003:8080"
+    networks:
+      - app-network
+
+
+  ocelot.apigateway:
+    image: ${DOCKER_REGISTRY-}ocelotapigateway
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    depends_on:
+      - catalog.api
+      - basket.api
+      - discount.api
+      - ordering.api
+    ports:
+      - "8080:8080"  
+    networks:
+      - app-network
+
+  elasticsearch:
+    container_name: elasticsearch
+    environment:
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    networks:
+      - app-network
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+
+  kibana:
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    ports:
+      - "5601:5601"
+    networks:
+      - app-network
+ 
+
+
+  
 
 networks:
   app-network:
@@ -135,3 +225,5 @@ volumes:
   mongo-data:
   postgres_data:
   pgadmin_data:
+  orderdb-dat:
+  elasticsearch-data:

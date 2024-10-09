@@ -2,8 +2,8 @@
 
 namespace Catalog.API.Controllers
 {
-    [ApiVersion("v1")]
-    [Route("/api/[Controller]")]
+    [ApiVersion("1")]
+    [Route("api/v{version:apiVersion}/[controller]")]
     [ApiController]
     public class ApiController : Controller
     {

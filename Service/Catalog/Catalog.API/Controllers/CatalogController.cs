@@ -1,6 +1,7 @@
 ﻿using Catalog.Application.Commands;
 using Catalog.Application.Queries;
 using Catalog.Application.Responses;
+using Catalog.Core.Specs;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
@@ -96,7 +97,7 @@ namespace Catalog.API.Controllers
 
                 return NotFound(new ApiResponse { Success = false, Message = $"Product not found" });
             }
-            return Ok(new ApiResponse<IList<ProductResponse>> { Success = true, Message = "Products Found", Data = result });
+            return Ok(new ApiResponse<List<ProductResponse>> { Success = true, Message = "Products Found", Data = result });
 
         }
 
