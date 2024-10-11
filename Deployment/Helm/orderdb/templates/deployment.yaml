@@ -36,6 +36,12 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: SA_PASSWORD
+              value: "dilip1234*D8055"
+            - name: ACCEPT_EULA
+              value: "Y"
+
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}

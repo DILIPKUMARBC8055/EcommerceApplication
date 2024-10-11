@@ -40,6 +40,16 @@ spec:
             - name: http
               containerPort: {{ .Values.service.port }}
               protocol: TCP
+          env:
+          - name: POSTGRES_PASSWORD
+            value: {{ .Values.env.POSTGRES_PASSWORD }}
+          - name: POSTGRES_USER
+            value: {{ .Values.env.POSTGRES_USER }}
+          - name: POSTGRES_DB
+            value: {{ .Values.env.POSTGRES_DB }}
+          - name: POSTGRES_HOST_AUTH_METHOD
+            value: {{ .Values.env.POSTGRES_HOST_AUTH_METHOD }}
+
           livenessProbe:
             {{- toYaml .Values.livenessProbe | nindent 12 }}
           readinessProbe:
@@ -66,3 +76,13 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      env:
+        - name: POSTGRES_PASSWORD
+          value: {{ .Values.env.POSTGRES_PASSWORD }}
+        - name: POSTGRES_USER
+          value: {{ .Values.env.POSTGRES_USER }}
+        - name: POSTGRES_DB
+          value: {{ .Values.env.POSTGRES_DB }}
+        - name: POSTGRES_HOST_AUTH_METHOD
+          value: {{ .Values.env.POSTGRES_HOST_AUTH_METHOD }}
+

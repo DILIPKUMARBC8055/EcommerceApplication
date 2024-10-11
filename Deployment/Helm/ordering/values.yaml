@@ -5,10 +5,10 @@
 replicaCount: 1
 
 image:
-  repository: nginx
+  repository: dilipkumarbc8055/ecom-order
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  tag: "latest"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -105,3 +105,17 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+
+env:
+  values:
+  - name: ASPNETCORE_ENVIRONMENT
+    value: Development
+  urls:
+  configmap:
+    - name: ConnectionStrings__OrderingConnectionString
+      key: ConnectionStrings__OrderingConnectionString
+    - name: EventBusSettings__HostAddress
+      key: EventBusSettings__HostAddress
+    - name: ElasticConfiguration__Uri
+      key: ElasticConfiguration__Uri
